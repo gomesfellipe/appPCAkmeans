@@ -136,8 +136,10 @@ próximos de zero.
 
 Referências:
 
-[http://www.jstatsoft.org/v25/i04/paper](http://www.jstatsoft.org/v25/i04/paper)
-[http://cran.r-project.org/web/packages/clValid/clValid.pdf](http://cran.r-project.org/web/packages/clValid/clValid.pdf)
-[Introdução a Mineração de Dados com aplicações em R](https://www.amazon.com.br/Introdu%C3%A7%C3%A3o-Minera%C3%A7%C3%A3o-Dados-Leandro-Augusto/dp/853528446X?tag=goog0ef-20&smid=A1ZZFT5FULY4LN&ascsubtag=bdfe9782-28b5-4343-ba3d-5f55b6703059)
+ * [http://www.jstatsoft.org/v25/i04/paper](http://www.jstatsoft.org/v25/i04/paper)
+
+ * [http://cran.r-project.org/web/packages/clValid/clValid.pdf](http://cran.r-project.org/web/packages/clValid/clValid.pdf)
+
+ * [Introdução a Mineração de Dados com aplicações em R](https://www.amazon.com.br/Introdu%C3%A7%C3%A3o-Minera%C3%A7%C3%A3o-Dados-Leandro-Augusto/dp/853528446X?tag=goog0ef-20&smid=A1ZZFT5FULY4LN&ascsubtag=bdfe9782-28b5-4343-ba3d-5f55b6703059)
 
 Mais informações sobre a avaliação dos resultados do agrupamento podem ser conferidas em um post que falo sobre [Análise multivariada em R](https://gomesfellipe.github.io/post/2018-01-01-analise-multivariada-em-r/an%C3%A1lise-multivariada-em-r/)
