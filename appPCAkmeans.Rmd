@@ -1,0 +1,516 @@
+---
+title: "appPCAkmeans"
+author: "Fellipe"
+date: "23 de fevereiro de 2018"
+output: 
+  flexdashboard::flex_dashboard:
+runtime: shiny
+---
+
+```{r setup}
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#+  Aplicativo responsável por fazer a análise de Componentes Principais  +
+#+        de maneira ágil com a base de dados informada pelo usuário      +
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+#Pacotes utilizados
+suppressMessages(require(shiny))        # Renderizar o aplicativo 
+suppressMessages(require(flexdashboard))        # Renderizar o aplicativo 
+suppressMessages(require(ggplot2))      # Criar gráficos elegantes
+suppressMessages(require(ggfortify))    # Criar gráficos de análises com ggplot
+#suppressMessages(require(factoextra))  # Nao usa mais
+suppressMessages(require(DT))           # Renderizar tabelas elegantes e práticas
+suppressMessages(require(plotly))       # Transforma ggplot em interativo
+suppressMessages(require(threejs))      # 3d interativo
+suppressMessages(require(clValid)) # Validar clusters
+
+
+# Define UI (User input) para a aplicação
+ui <- fluidPage(                                                                   # Interface do usuário
+   
+   
+   titlePanel("Análise de Componentes Principais"),                                # Título da aplicação             
+   
+   
+   sidebarLayout( # Barra lateral com entrada de controle deslizante para número de caixas
+      sidebarPanel(  # Seleciona variáveis para o plot
+        tags$p("Selecione o arquivo para fazer a análise de componentes principais e marque as opções necessárias para a leitura do dados nos campos abaixo:"),
+        hr(),                       # Linha horizontal
+        radioButtons("sep", "Separador",                                            # Input: Selecionar um item de uma lista
+                     choices = c(Comma = ",",Semicolon = ";",                       # Opcoes de separadores do input em formato csv
+                                 Tab = "\t"),selected = ","),
+        
+        selectInput(inputId = "formato",                                            # Seleciona o formato do arquivo
+                    label = "Selecione o formato do arquivo:",
+                    choices = c("csv/txt", "excel")),
+        
+        textInput("plan", label = h3("Caso seja arquivo excel, qual a planilha?"),  # Input: Insere strings que considerados stopwords
+                  value = "Plan1"),
+        
+        fileInput("file1", "Escolha o arquivo no formato CSV",                      # Input: Selecionar um arquivo csv do computador 
+                  multiple = TRUE,                                                  # Permite carregar mais de um arquivo
+                  accept = c("text/csv",                                            # Tipos de arquivos aceitos
+                             "text/comma-separated-values,text/plain",
+                             ".csv")),
+      
+        tags$div(class="header", checked=NA,                                        # Inclui um link:
+                 tags$a(href="https://github.com/gomesfellipe/appACPkmeans/blob/master/base-iris.csv", "Link para base de exemplo")
+        ),
+        sliderInput("cluster",                                       # Posicao das palavras
+                    "Selecione o número de clusters:",
+                    min = 0,  max = 10, value = 2)
+        
+        ),
+      
+      
+      
+      mainPanel(                                                                    # O que será retornado para o usuário
+        navbarPage(                                                                 # Inclui separação com abas para 
+          title = 'Resultados da PCA',                                              # Titulo 
+          tabPanel('sdev',            dataTableOutput('sdev')),           
+          tabPanel('rotation',        dataTableOutput('rotation')),                 ##############################
+          tabPanel('center',          dataTableOutput('center')),                   # Retorno da funcao prcomp() #
+          tabPanel('scale',           dataTableOutput('scale')),                    ##############################
+          tabPanel('x',               dataTableOutput('x')),
+          tabPanel('summary',         verbatimTextOutput('summary'))
+        ), 
+        plotlyOutput("plot1"),                                                      # Exibe a figura interativa criada
+        downloadButton("downloadPlot", "Download screeplot"),                       # Botao de download do screeplot
+        downloadButton("downloadPlot2", "Download PCA")                             # Botao de download do PCA plot
+        ,
+        navbarPage(
+          title = "Clusters",
+          tabPanel("2 Dimensões", plotlyOutput("plot3"),downloadButton("downloadPlot3", "Download kmeans")),
+          tabPanel("3 Dimensões", scatterplotThreeOutput("plot4"))
+          
+        ),
+        
+
+        
+        navbarPage(                                                                 # Inclui separação com abas para 
+          title = 'Resultados da PCA',                                              # Titulo 
+          tabPanel('internal',            verbatimTextOutput('valida1')),           
+          tabPanel('stability',            verbatimTextOutput('valida2'))           
+
+        )
+        
+      )
+   )
+)
+
+# Definir a lógica do servidor necessária
+server <- function(input, output) {                                  # Recebe os inputs da UI e calcula outputs 
+   
+  terms <- reactive({   if(input$formato=="excel"){                  # Leitura dos dados ficara armazenada no objeto terms
+    req(input$file1)                                                 # Para limpar mensagem de erro antes de carregar a base
+    df <- read_excel(input$file1$datapath,sheet = input$plan)        # Leitura de base excel
+    
+  }else{                                                             # Se o arquivo nao for excel
+    
+    req(input$file1)                                                 # Leitura dos dados ficara armazenada no objeto terms
+    df = read.csv(input$file1$datapath,                              # Leitura da base de dados com os inputs obtidos em ui
+                  header = T,                                        # Base precisa ter cabeçalho
+                  sep = input$sep,encoding = "UTF-8")                # separação informada pelo usuario
+  }
+    
+    # temp=as.data.frame(df[,-1])                                    # Retirava primeira coluna de nomes
+    temp=df                                                          # Armazenando a base no objeto temp
+    
+    acpcor=prcomp(temp, scale = TRUE)                                # Funcao do R que realiza PCA
+    
+  })
+  
+
+  output$plot1 <- renderPlotly({
+    acpcor=terms()                                                   # Leitura do objeto armazenado em terms
+    
+    # Funcao para criar o screeplot:
+    ggscreeplot <- function(pcobj, type = c('pev', 'cev')) {
+      type <- match.arg(type)
+      d <- pcobj$sdev^2
+      yvar <- switch(type, 
+                     pev = d / sum(d), 
+                     cev = cumsum(d) / sum(d))
+      
+      yvar.lab <- switch(type,
+                         pev = 'proportion of explained variance',
+                         cev = 'cumulative proportion of explained variance')
+      
+      df <- data.frame(PC = 1:length(d), yvar = yvar)
+      
+      ggplot(data = df, aes(x = PC, y = yvar)) + 
+        xlab('principal component number') + ylab(yvar.lab) +
+        geom_point() + geom_path()
+    }
+    
+    g1=ggscreeplot(acpcor)+                                          # Criando o screeplot
+      theme_bw()+
+      labs(title="ScreePlot",
+           ylab="Porcentagem explicada pela variância",
+           xlab="Dimensões")
+    p1=plotly::ggplotly(g1)                                          # Transformando em interativo
+    
+    g2=autoplot(acpcor,                                              # Criando o gráfico de PCA
+                label = TRUE,
+                label.size = 1,
+                loadings = TRUE,
+                loadings.label = TRUE,
+                loadings.label.size  = 3)+
+      theme_bw()+
+      labs(title="Análise de Componentes Principais",
+           ylab="Dim 2",
+           xlab="Dim 1")
+    p2=plotly::ggplotly(g2)                                          # Transformando em interativo   
+    
+    subplot(p1, p2, nrows = 1)                                       # Funcao para juntar dois graficos plotly
+     
+  })
+  
+  plotInput = function(){                                            # Criando objeto que será utilizando abaixo para download
+    
+    # Declarando novamente funcao screeplot:
+    ggscreeplot <- function(pcobj, type = c('pev', 'cev')) {
+      type <- match.arg(type)
+      d <- pcobj$sdev^2
+      yvar <- switch(type, 
+                     pev = d / sum(d), 
+                     cev = cumsum(d) / sum(d))
+      
+      yvar.lab <- switch(type,
+                         pev = 'proportion of explained variance',
+                         cev = 'cumulative proportion of explained variance')
+      
+      df <- data.frame(PC = 1:length(d), yvar = yvar)
+      
+      ggplot(data = df, aes(x = PC, y = yvar)) + 
+        xlab('principal component number') + ylab(yvar.lab) +
+        geom_point() + geom_path()
+    }
+    
+    acpcor=terms()                                                   # Obtendo o objeto retornado em terms
+    ggscreeplot(acpcor)+                                             # Grafico que sera disponibilizado para download
+      theme_bw()+
+      labs(title="ScreePlot",
+           ylab="Porcentagem explicada pela variância",
+           xlab="Dimensões")
+    
+  }
+  
+  output$downloadPlot <- downloadHandler(                            # Criando o botao de download
+    filename = 'screeplot.png',
+    content = function(file) {
+      device <- function(..., width, height) {
+        grDevices::png(..., width = width, height = height,
+                       res = 300, units = "in")
+      }
+      ggsave(file, plot = plotInput(), device = device)
+    })
+
+    plotInput = function(){                                          # Criando objeto que será utilizando abaixo para download
+    # Declarando novamente funcao screeplot:
+    ggscreeplot <- function(pcobj, type = c('pev', 'cev')) {
+      type <- match.arg(type)
+      d <- pcobj$sdev^2
+      yvar <- switch(type, 
+                     pev = d / sum(d), 
+                     cev = cumsum(d) / sum(d))
+      
+      yvar.lab <- switch(type,
+                         pev = 'proportion of explained variance',
+                         cev = 'cumulative proportion of explained variance')
+      
+      df <- data.frame(PC = 1:length(d), yvar = yvar)
+      
+      ggplot(data = df, aes(x = PC, y = yvar)) + 
+        xlab('principal component number') + ylab(yvar.lab) +
+        geom_point() + geom_path()
+    }
+    
+    acpcor=terms()                                                   # Obtendo o objeto retornado em terms
+    autoplot(acpcor,                                                 # Grafico que sera disponibilizado para download
+             label = TRUE,
+             label.size = 1,
+             loadings = TRUE,
+             loadings.label = TRUE,
+             loadings.label.size  = 3)+
+      theme_bw()+
+      labs(title="Análise de Componentes Principais",
+           ylab="Dim 2",
+           xlab="Dim 1")
+    
+  }
+  
+  output$downloadPlot2 <- downloadHandler(                           # Criando o segundo botao de download
+    filename = 'acp.png',
+    content = function(file) {
+      device <- function(..., width, height) {
+        grDevices::png(..., width = width, height = height,
+                       res = 300, units = "in")
+      }
+      ggsave(file, plot = plotInput(), device = device)
+    })
+  
+         ######################################
+         # Abaixo os outputs da funcao prcomp #
+         ######################################
+  
+  output$sdev <- DT::renderDataTable({                               
+    acpcor=terms()
+    DT::datatable(as.data.frame(round(acpcor$sdev,4)),
+                  options = list(pageLength = 25))
+  })
+  
+  output$rotation <- DT::renderDataTable({
+    acpcor=terms()
+    DT::datatable(as.data.frame(round(acpcor$rotation,4)),
+                  options = list(pageLength = 25))
+  })
+  
+  output$center <- DT::renderDataTable({
+    acpcor=terms()
+    DT::datatable(as.data.frame(round(acpcor$center,4)),
+                  options = list(pageLength = 25))
+  })
+  
+  output$scale <- DT::renderDataTable({
+    acpcor=terms()
+    DT::datatable(as.data.frame(round(acpcor$scale,4)),
+                  options = list(pageLength = 25))
+  })
+  
+  output$x <- DT::renderDataTable({
+    acpcor=terms()
+    DT::datatable(as.data.frame(round(acpcor$x,4)),
+                  options = list(pageLength = 25))
+  })
+  
+  output$summary <- renderPrint({
+    acpcor=terms()
+    summary(acpcor)
+  })
+  
+  
+     #######################################
+     # Encerra os outputs da funcao prcomp #
+     #######################################
+
+  
+  output$plot3 <- renderPlotly({
+
+    acpcor=terms()                                                   # Leitura do objeto armazenado em terms
+    
+    if(input$formato=="excel"){                                      # Leitura dos dados ficara armazenada no objeto terms
+      req(input$file1)                                               # Para limpar mensagem de erro antes de carregar a base
+      df <- read_excel(input$file1$datapath,sheet = input$plan)      # Leitura de base excel
+      
+    }else{                                                           # Se o arquivo nao for excel
+      
+      req(input$file1)                                               # Leitura dos dados ficara armazenada no objeto terms
+      df = read.csv(input$file1$datapath,                            # Leitura da base de dados com os inputs obtidos em ui
+                    header = T,                                      # Base precisa ter cabeçalho
+                    sep = input$sep,encoding = "UTF-8")              # separação informada pelo usuario
+    }
+    
+    
+    plot_kmeans = function(df, cluster=input$cluster) {              # Funcao para plotar o agrupamento k means 
+      
+      #cluster
+      tmp_k = kmeans(df, centers = cluster, nstart = 100)
+      
+      #factor
+      tmp_f = acpcor
+      
+      #collect data
+      tmp_d = data.frame(matrix(ncol=0, nrow=nrow(df)))
+      tmp_d$cluster = as.factor(tmp_k$cluster)
+      tmp_d$fact_1 = as.numeric(tmp_f$x[, 1])
+      tmp_d$fact_2 = as.numeric(tmp_f$x[, 2])
+      tmp_d$label = rownames(df)
+      
+      #plot
+      g = ggplot(tmp_d, aes(fact_1, fact_2, color = cluster)) +
+        geom_point() +
+        geom_text(aes(label = label),
+                  size = 3,
+                  vjust = 1,
+                  color = "black")
+      return(g)
+    }
+    
+    g1=plot_kmeans(df)+
+      theme_bw()+
+      labs(title="Agrupamento com k-means",
+           ylab="Dim 2",
+           xlab="Dim 1")
+    ggplotly(g1)
+    
+    
+  })
+  
+  
+  plotInput = function(){  
+    acpcor=terms()                                                   # Leitura do objeto armazenado em terms
+    
+    if(input$formato=="excel"){                                      # Leitura dos dados ficara armazenada no objeto terms
+      req(input$file1)                                               # Para limpar mensagem de erro antes de carregar a base
+      df <- read_excel(input$file1$datapath,sheet = input$plan)      # Leitura de base excel
+      
+    }else{                                                           # Se o arquivo nao for excel
+      
+      req(input$file1)                                               # Leitura dos dados ficara armazenada no objeto terms
+      df = read.csv(input$file1$datapath,                            # Leitura da base de dados com os inputs obtidos em ui
+                    header = T,                                      # Base precisa ter cabeçalho
+                    sep = input$sep,encoding = "UTF-8")              # separação informada pelo usuario
+    }
+    
+    
+    plot_kmeans = function(df, cluster=input$cluster) {              # Funcao para plotar o agrupamento k means 
+      
+      #cluster
+      tmp_k = kmeans(df, centers = cluster, nstart = 100)
+      
+      #factor
+      tmp_f = acpcor
+      
+      #collect data
+      tmp_d = data.frame(matrix(ncol=0, nrow=nrow(df)))
+      tmp_d$cluster = as.factor(tmp_k$cluster)
+      tmp_d$fact_1 = as.numeric(tmp_f$x[, 1])
+      tmp_d$fact_2 = as.numeric(tmp_f$x[, 2])
+      tmp_d$label = rownames(df)
+      
+      #plot
+      g = ggplot(tmp_d, aes(fact_1, fact_2, color = cluster)) +
+        geom_point() +
+        geom_text(aes(label = label),
+                  size = 3,
+                  vjust = 1,
+                  color = "black")
+      return(g)
+    }
+    
+    plot_kmeans(df)+
+      theme_bw()+
+      labs(title="Agrupamento com k-means",
+           ylab="Dim 2",
+           xlab="Dim 1")
+    
+    
+  }
+  
+  output$downloadPlot3 <- downloadHandler(                            # Criando o botao de download
+    filename = 'kmeans.png',
+    content = function(file) {
+      device <- function(..., width, height) {
+        grDevices::png(..., width = width, height = height,
+                       res = 300, units = "in")
+      }
+      ggsave(file, plot = plotInput(), device = device)
+    })
+  
+  
+  output$plot4 <- renderScatterplotThree({  
+    
+    acpcor=terms()
+    
+        if(input$formato=="excel"){                                      # Leitura dos dados ficara armazenada no objeto terms
+      req(input$file1)                                               # Para limpar mensagem de erro antes de carregar a base
+      df <- read_excel(input$file1$datapath,sheet = input$plan)      # Leitura de base excel
+      
+    }else{                                                           # Se o arquivo nao for excel
+      
+      req(input$file1)                                               # Leitura dos dados ficara armazenada no objeto terms
+      df = read.csv(input$file1$datapath,                            # Leitura da base de dados com os inputs obtidos em ui
+                    header = T,                                      # Base precisa ter cabeçalho
+                    sep = input$sep,encoding = "UTF-8")              # separação informada pelo usuario
+    }
+    
+    
+    plot_kmeans = function(df, cluster=input$cluster) {              # Funcao para plotar o agrupamento k means 
+      
+      #cluster
+      tmp_k = kmeans(df, centers = cluster, nstart = 100)
+      
+      #factor
+      tmp_f = acpcor
+      
+      #collect data
+      tmp_d = data.frame(matrix(ncol=0, nrow=nrow(df)))
+      tmp_d$cluster = as.factor(tmp_k$cluster)
+      tmp_d$fact_1 = as.numeric(tmp_f$x[, 1])
+      tmp_d$fact_2 = as.numeric(tmp_f$x[, 2])
+      tmp_d$label = rownames(df)
+      
+      #plot
+      g = ggplot(tmp_d, aes(fact_1, fact_2, color = cluster)) +
+        geom_point() +
+        geom_text(aes(label = label),
+                  size = 3,
+                  vjust = 1,
+                  color = "black")
+      return(g)
+    }
+    
+    g=plot_kmeans(df)+
+      theme_bw()+
+      labs(title="Agrupamento com k-means",
+           ylab="Dim 2",
+           xlab="Dim 1")
+    
+                        
+    scatterplot3js(as.matrix(data.frame(pc1=as.vector(acpcor$x[,1]),pc2=as.vector(acpcor$x[,2]),pc3=as.vector(acpcor$x[,3]))),color = as.numeric(g$data$cluster),size = 0.5, flip.y=TRUE) 
+  }) 
+  
+  
+
+  
+  output$valida1 <- renderPrint({
+    if(input$formato=="excel"){                                      # Leitura dos dados ficara armazenada no objeto terms
+      req(input$file1)                                               # Para limpar mensagem de erro antes de carregar a base
+      df <- read_excel(input$file1$datapath,sheet = input$plan)      # Leitura de base excel
+      
+    }else{                                                           # Se o arquivo nao for excel
+      
+      req(input$file1)                                               # Leitura dos dados ficara armazenada no objeto terms
+      df = read.csv(input$file1$datapath,                            # Leitura da base de dados com os inputs obtidos em ui
+                    header = T,                                      # Base precisa ter cabeçalho
+                    sep = input$sep,encoding = "UTF-8")              # separação informada pelo usuario
+    }
+
+    
+    #Medidas de validação:
+    valida1=clValid(df,input$cluster,clMethods=c("kmeans"),validation="internal")
+    summary(valida1)
+    
+
+  })
+  
+  output$valida2 <- renderPrint({
+    if(input$formato=="excel"){                                      # Leitura dos dados ficara armazenada no objeto terms
+      req(input$file1)                                               # Para limpar mensagem de erro antes de carregar a base
+      df <- read_excel(input$file1$datapath,sheet = input$plan)      # Leitura de base excel
+      
+    }else{                                                           # Se o arquivo nao for excel
+      
+      req(input$file1)                                               # Leitura dos dados ficara armazenada no objeto terms
+      df = read.csv(input$file1$datapath,                            # Leitura da base de dados com os inputs obtidos em ui
+                    header = T,                                      # Base precisa ter cabeçalho
+                    sep = input$sep,encoding = "UTF-8")              # separação informada pelo usuario
+    }
+    
+    
+    valida2=clValid(df,input$cluster,clMethods=c("kmeans"),validation="stability")
+    summary(valida2)
+  })
+  
+}
+
+# Executa o aplicativo
+shinyApp(ui = ui, server = server)
+
+
+```
+
