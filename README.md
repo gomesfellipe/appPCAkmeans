@@ -3,7 +3,7 @@
 
 ![](img/gif-plotly.gif)
 
-link do app: [https://gomesfellipe.shinyapps.io/appPCAkmeans/](https://gomesfellipe.shinyapps.io/appPCAkmeans/)
+link do app: [https://dtpapp.shinyapps.io/appPCAkmeans/](https://gomesfellipe.shinyapps.io/appPCAkmeans/)
 
 Esta pasta conta com os seguintes arquivos:
 
