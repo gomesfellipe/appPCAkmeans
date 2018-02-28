@@ -1,12 +1,3 @@
----
-title: "appPCAkmeans"
-author: "Fellipe"
-date: "23 de fevereiro de 2018"
-output: 
-  flexdashboard::flex_dashboard:
-runtime: shiny
----
-
 ```{r setup}
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #+  Aplicativo responsável por fazer a análise de Componentes Principais  +
