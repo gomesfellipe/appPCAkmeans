@@ -29,7 +29,7 @@ Referência: [Introdução a Mineração de Dados com aplicações em R](https:/
 
 Obs.: Aqui nesse github existe um repósitório chamado [Livro_Introducao_a_Mineracao_de_Dados](https://github.com/gomesfellipe/Livro_Introducao_a_Mineracao_de_Dados) que contém algumas das funções e idéias adquiridas ao estudar esse livro.
 
-Além do post no meu blog que falo sobre [Análise multivariada em R](https://gomesfellipe.github.io/post/2018-01-01-analise-multivariada-em-r/an%C3%A1lise-multivariada-em-r/)
+Além de um post em um blog que fala sobre [Análise multivariada em R](https://gomesfellipe.github.io/post/2018-01-01-analise-multivariada-em-r/an%C3%A1lise-multivariada-em-r/)
 
 # Pacotes utilizados:
 
