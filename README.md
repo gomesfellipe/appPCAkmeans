@@ -1,4 +1,5 @@
-[![Website](https://img.shields.io/website-up-down-green-red/http/shields.io.svg?label=my-website&style=for-the-badge)](https://gomesfellipe.shinyapps.io/appPCAkmeans/)
+[![Website](https://img.shields.io/website-up-down-green-red/http/shields.io.svg?label=my-website&style=for-the-badge)](https://gomesfellipe.shinyapps.io/appPCAkmeans/) ![npm](https://img.shields.io/npm/l/express.svg?style=for-the-badge)
+
 
 # Aplicativo para realizar análise multivariada
 
